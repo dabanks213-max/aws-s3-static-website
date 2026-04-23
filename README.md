@@ -102,3 +102,83 @@ Applied a least-privilege bucket policy granting public read-only access:
 - [ ] Add CloudFront distribution for HTTPS and edge caching
 - [ ] Restrict S3 bucket so only CloudFront can access it directly
   (Origin Access Control)
+
+---
+
+## Implementation — CLI Method
+
+### Prerequisites
+- AWS CLI installed and configured (`aws configure list` to verify)
+- `index.html` saved locally
+- Windows users: use JSON config files instead of inline JSON to avoid 
+  PowerShell quoting issues
+
+### Commands Used
+
+**Step 1: Create the bucket**
+```bash
+aws s3 mb s3://levelupbank-website-cli-2026
+```
+
+**Step 2: Disable Block Public Access**
+```bash
+aws s3api put-public-access-block \
+  --bucket levelupbank-website-cli-2026 \
+  --public-access-block-configuration \
+  "BlockPublicAcls=false,IgnorePublicAcls=false,
+  BlockPublicPolicy=false,RestrictPublicBuckets=false"
+```
+
+**Step 3: Upload the website file**
+```bash
+aws s3 cp "C:\Users\Darien\Downloads\index.html" s3://levelupbank-website-cli-2026/
+```
+
+**Step 4: Enable static website hosting**
+
+Created `website-config.json`:
+```json
+{
+    "IndexDocument": {
+        "Suffix": "index.html"
+    },
+    "ErrorDocument": {
+        "Key": "error.html"
+    }
+}
+```
+```bash
+aws s3api put-bucket-website \
+  --bucket levelupbank-website-cli-2026 \
+  --website-configuration file://website-config.json
+```
+
+**Step 5: Apply bucket policy**
+
+Created `bucket-policy.json`:
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::levelupbank-website-cli-2026/*"
+        }
+    ]
+}
+```
+```bash
+aws s3api put-bucket-policy \
+  --bucket levelupbank-website-cli-2026 \
+  --policy file://bucket-policy.json
+```
+
+### Key CLI Lessons Learned
+- CLI commands are case sensitive — `BlockPublicPolicy` ≠ `BlockPublicpolicy`
+- Silent output means success — errors are always explicit
+- On Windows PowerShell, use `file://` with JSON config files to avoid 
+  quoting issues
+- Always cross-verify CLI changes in the console
