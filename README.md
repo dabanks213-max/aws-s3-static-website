@@ -215,7 +215,6 @@ aws s3api put-bucket-policy \
 |---|---|---|
 | CloudFront | ~$0/month (minimal traffic) | Pay-as-you-go based on usage |
 | WAF | Disabled | ~$14/month — recommended for public-facing apps |
-| WAF (Enterprise) | N/A | $200+/month for advanced DDoS, bot protection |
 
 > **Executive Note:** WAF should be considered a non-negotiable cost 
 > for any production financial services website. The $14/month base 
