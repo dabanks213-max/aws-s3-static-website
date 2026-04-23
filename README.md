@@ -98,9 +98,9 @@ Applied a least-privilege bucket policy granting public read-only access:
 ---
 
 ## Next Iterations
-- [ ] Repeat full implementation using AWS CLI
-- [ ] Add CloudFront distribution for HTTPS and edge caching
-- [ ] Restrict S3 bucket so only CloudFront can access it directly
+- [x] Repeat full implementation using AWS CLI
+- [x] Add CloudFront distribution for HTTPS and edge caching
+- [x] Restrict S3 bucket so only CloudFront can access it directly
   (Origin Access Control)
 
 ---
