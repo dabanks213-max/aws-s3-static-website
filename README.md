@@ -322,6 +322,7 @@ aws s3 rb s3://levelupbank-website-cli-2026
 > projects. Leaving idle resources running is a common source of 
 > unexpected AWS bills and is poor cloud hygiene.
 
+
 - [x] Repeat full implementation using AWS CLI
 - [x] Add CloudFront distribution for HTTPS and edge caching
 - [x] Restrict S3 bucket so only CloudFront can access it directly
