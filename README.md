@@ -182,3 +182,143 @@ aws s3api put-bucket-policy \
 - On Windows PowerShell, use `file://` with JSON config files to avoid 
   quoting issues
 - Always cross-verify CLI changes in the console
+
+- ---
+
+## Advanced Tier — CloudFront + HTTPS
+
+### What This Adds
+- HTTPS enforcement via CloudFront — eliminates the "Not secure" warning
+- Global edge caching — website is served from AWS edge locations 
+  closest to the user
+- HTTP to HTTPS redirect — any unencrypted request is automatically 
+  upgraded
+
+### Architecture
+
+### CloudFront Distribution Settings
+
+| Setting | Value | Reason |
+|---|---|---|
+| Origin | S3 website endpoint | Required for index.html routing |
+| Viewer protocol policy | Redirect HTTP to HTTPS | Forces encrypted connections |
+| Allowed HTTP methods | GET, HEAD | Read-only — static website |
+| Cache policy | CachingOptimized | Recommended for S3 content |
+| WAF | Disabled | Learning project — not required |
+| Price class | Pay-as-you-go | Minimal cost for low traffic |
+
+### CloudFront Domain
+`https://d1vtfi1auj4t0r.cloudfront.net`
+
+### Cost Considerations
+| Service | Learning Project | Production Recommendation |
+|---|---|---|
+| CloudFront | ~$0/month (minimal traffic) | Pay-as-you-go based on usage |
+| WAF | Disabled | ~$14/month — recommended for public-facing apps |
+| WAF (Enterprise) | N/A | $200+/month for advanced DDoS, bot protection |
+
+> **Executive Note:** WAF should be considered a non-negotiable cost 
+> for any production financial services website. The $14/month base 
+> cost is negligible compared to the cost of a successful web attack 
+> or compliance violation.
+
+### Security Limitation of This Tier
+The S3 bucket remains publicly accessible. A user who knows the bucket 
+endpoint can bypass CloudFront entirely and access the site over HTTP 
+with no caching or security controls. This is addressed in the 
+Complex tier below.
+
+---
+
+## Complex Tier — OAC (Production-Grade Security)
+
+### What This Adds
+- S3 bucket is completely private — no public access whatsoever
+- Only the specific CloudFront distribution can access S3
+- Eliminates the ability to bypass CloudFront entirely
+
+### Architecture
+
+### What is OAC?
+Origin Access Control (OAC) gives CloudFront a verified identity that 
+S3 recognizes. The S3 bucket policy grants read access to one thing 
+only — the specific CloudFront distribution ARN. This is similar to 
+an IAM role: instead of managing credentials, AWS handles identity 
+verification internally.
+
+> **Real-world analogy:** OAC is a backstage pass. CloudFront has it. 
+> Everyone else — including users who know the S3 URL — gets stopped 
+> at the door.
+
+### Key Configuration Changes from Advanced Tier
+
+1. **Origin changed** from S3 website endpoint to S3 REST API endpoint
+   - Website endpoint does not support OAC
+   - REST endpoint: `levelupbank-website-gold-2026.s3.us-east-1.amazonaws.com`
+
+2. **Default root object** set to `index.html` in CloudFront
+   - REST endpoint does not handle index documents automatically
+   - CloudFront must be explicitly told what to serve at the root
+
+3. **Bucket policy replaced** with CloudFront-generated OAC policy:
+
+```json
+{
+    "Version": "2008-10-17",
+    "Id": "PolicyForCloudFrontPrivateContent",
+    "Statement": [
+        {
+            "Sid": "AllowCloudFrontServicePrincipal",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::levelupbank-website-gold-2026/*",
+            "Condition": {
+                "StringEquals": {
+                    "AWS:SourceArn": "arn:aws:cloudfront::287870619366:distribution/E29W2FNFTFKCZ6"
+                }
+            }
+        }
+    ]
+}
+```
+
+4. **Block Public Access re-enabled** — final lockdown
+
+### Verification Results
+
+| Test | URL | Expected Result | Actual Result |
+|---|---|---|---|
+| CloudFront HTTPS | `https://d1vtfi1auj4t0r.cloudfront.net` | Website loads | ✅ Pass |
+| Direct S3 access | `http://levelupbank-website-gold-2026.s3-website-us-east-1.amazonaws.com` | 403 Forbidden | ✅ Pass |
+
+### Why OAC is the Production Standard
+- **Least privilege** — S3 trusts exactly one identity, nothing else
+- **No public attack surface** — bucket name exposure means nothing
+- **Compliance ready** — satisfies requirements that storage never be public-facing (PCI-DSS, HIPAA, FedRAMP)
+- **Full auditability** — all traffic flows through one controlled point with consistent logging
+
+---
+
+## Teardown (Cost Management)
+When this project is not actively in use, disable or delete these 
+resources to avoid unnecessary charges:
+
+```bash
+# Disable CloudFront distribution first (must be disabled before deletion)
+aws cloudfront update-distribution --id E29W2FNFTFKCZ6 --no-enabled
+
+# Delete S3 objects
+aws s3 rm s3://levelupbank-website-gold-2026 --recursive
+aws s3 rm s3://levelupbank-website-cli-2026 --recursive
+
+# Delete S3 buckets
+aws s3 rb s3://levelupbank-website-gold-2026
+aws s3 rb s3://levelupbank-website-cli-2026
+```
+
+> **Engineer's Note:** Always clean up cloud resources after learning 
+> projects. Leaving idle resources running is a common source of 
+> unexpected AWS bills and is poor cloud hygiene.
