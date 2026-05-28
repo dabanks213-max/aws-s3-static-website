@@ -17,7 +17,6 @@ to achieve:
 - AWS S3 (Simple Storage Service)
 - AWS Console (Console method)
 - AWS CLI (CLI method)
-- Terraform
 
 ## Prerequisites
 - AWS Account with appropriate IAM permissions
